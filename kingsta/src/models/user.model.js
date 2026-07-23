@@ -90,11 +90,13 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-userSchema.pre("save", function () {
-  this.password = bcrypt.hashSync(this.password, 10);
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
+  this.password = await bcrypt.hashSync(this.password, 10);
 });
 
-userSchema.method.comparePass = function (password) {
+userSchema.methods.comparePass = function (password) {
   return bcrypt.compareSync(password, this.password);
 };
 
