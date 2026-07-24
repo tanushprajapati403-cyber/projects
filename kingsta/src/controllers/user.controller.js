@@ -1,5 +1,6 @@
 import { trusted } from "mongoose";
 import UserModel from "../models/user.model.js";
+import { sendFiles } from "../services/storage.service.js";
 
 export const getMe = async (req, res) => {
   try {
@@ -340,6 +341,47 @@ export const changePassword = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "internal server error",
+    });
+  }
+};
+
+export const updateProfilePicture = async (req, res) => {
+  try {
+    const file = req.file;
+
+    console.log(file);
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "file is required",
+      });
+    }
+
+    const user = await UserModel.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "user not found",
+      });
+    }
+
+    const uploadFile = await sendFiles(file.buffer, file.originalname);
+
+    user.profile_pic = uploadFile.url;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "profile pic updated successfully",
+      data: user,
     });
   } catch (error) {
     return res.status(500).json({
