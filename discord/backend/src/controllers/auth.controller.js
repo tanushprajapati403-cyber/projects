@@ -1,10 +1,11 @@
 import userModel from "../models/user.model.js";
 import { sendFile } from "../services/storage.services.js";
 import { genreateToken } from "../utils/token.js";
-import crypto from "crypto";
 import bcrypt from "bcrypt";
 import redis from "../config/redis.js";
 import { sendEmail } from "../services/email.services.js";
+import jwt from "jsonwebtoken";
+import { genrateOTP } from "../utils/otp.js";
 
 export const registercontroller = async (req, res) => {
   try {
@@ -136,6 +137,7 @@ export const googleUsercontroller = async (req, res) => {
 
     const user = await userModel.findOne({ email });
 
+    console.log(req.user);
     if (user) {
       if (!user.googleId) {
         user.googleId = sub;
@@ -216,7 +218,7 @@ export const sendOTPcontroller = async (req, res) => {
     }
 
     //genrate otp 4 no. ki :-
-    const otp = crypto.randomInt(1000, 10000).toString();
+    const otp = genrateOTP();
 
     //hash otp for security reason :-
     const hashedotp = bcrypt.hashSync(otp, 10);
@@ -260,9 +262,103 @@ export const sendOTPcontroller = async (req, res) => {
     );
 
     return res.status(200).json({
-      success:true,
-      message:"otp sent successfully"
-    })
+      success: true,
+      message: "otp sent successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error,
+    });
+  }
+};
+
+export const verifyOTPcontroller = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      {
+        return res.status(400).json({
+          success: false,
+          message: "email and otp is required",
+        });
+      }
+    }
+
+    const otpKey = `otp:${email}`;
+    const attemptKey = `otpattempts:${email}`;
+    const data = await redis.get(otpKey);
+
+    if (!data) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is expired or not found",
+      });
+    }
+
+    const { otp: hashedotp, userId } = JSON.parse(data);
+
+    const isvalid = bcrypt.compareSync(otp, hashedotp);
+
+    if (isvalid) {
+      const attempts = await redis.incr(attemptKey);
+
+      // Set 5-minute expiry on the first failed attempt
+
+      if (attempts === 1) {
+        await redis.expire(attemptKey, 300);
+      }
+
+      // If user enters the wrong OTP 5 times,
+      // delete the OTP and attempt counter from Redis
+
+      if (attempts >= 5) {
+        await redis.del(otpKey);
+        await redis.del(attemptKey);
+
+        return res.status(429).json({
+          success: false,
+          message: "Too many invalid attempts. Please request a new OTP.",
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: "OTP is invalid",
+        attemptLeft: 5 - attempts,
+      });
+    }
+
+    // Generate a JWT reset token with a 10-minute expiry
+    const resetToken = genreateToken(userId, "10");
+
+    // Create a Redis reset session using the userId.
+    // The userId is used to match the JWT decoded.id
+    const resetKey = `password_reset:${userId}`;
+
+    await redis.set(resetKey, "valid", "EX", 600);
+
+    // OTP is successfully verified,
+    // so delete the OTP and attempt counter from Redis
+    await redis.del(otpKey);
+    await redis.del(attemptKey);
+
+    // Store the reset token in an HttpOnly cookie
+    // so JavaScript cannot directly access the token
+    res.cookie("resetToken", resetToken, {
+      httpOnly: true,
+      maxAge: 10 * 60 * 1000,
+      secure: false,
+      sameSite: "strict",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully",
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -271,41 +367,108 @@ export const sendOTPcontroller = async (req, res) => {
   }
 };
 
-export const verifyOTPcontroller = async (req , res) => {
+export const resetPasswordbyOTPcontroller = async (req, res) => {
   try {
-    const {email , otp } = req.body;
+    const { email, newPassword } = req.body;
+    const resetToken = req.cookies.resetToken;
 
-    if(!email , !otp) {
+    if (!email || !resetToken || !newPassword) {
       return res.status(400).json({
-        success:false,
-        message:"email and otp is required"
-      })
-    };
-
-    const otpKey  = `otp:${email}`;
-    const attemptKey = `otpattempts:${email}`;
-    const data = await redis.get(otpKey);
-
-    if(!data){
-      return res.status(400).json({
-        success:false,
-        message:"OTP is expired or not found"
-      })
-    };
-
-    const {otp: hashedotp , userId} = JSON.parse(data);
-
-    const isvalid = bcrypt.compareSync(otp , hashedotp);
-
-    if(isvalid){
-      
+        success: false,
+        message: "email , resetPassword , newPassword are required",
+      });
     }
-    
 
+    const resetKey = `password_reset:${userId}`;
+    const hasedResetTokken = await redis.get(resetKey);
+
+    if (!hasedResetTokken) {
+      return res.status(400).json({
+        success: false,
+        message:"" 
+      });
+    }
+
+    const user =  
   } catch (error) {
-     return res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
-}
+};
+
+// export const resetPasswordcontroller = async (req, res) => {
+//   try {
+//     const { token, newPassword } = req.body;
+
+//     if (!token || !newPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "token and new password is required",
+//       });
+//     }
+//     //Yeh line token ko verify karti hai ki wo asli hai aur expired to nahi hua. Agar token sahi hota hai
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+//     if (!decoded) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "unauthorize",
+//       });
+//     }
+
+//     //token ke andar jo user ki ID mili thi (decoded.id), uska use karke database me us user ko dhoonda ja raha hai.
+//     const user = await userModel.findById(decoded.id);
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "user not found",
+//       });
+//     }
+
+//     user.password = newPassword;
+
+//     await user.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "password updated successfully",
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+
+export const logoutUsercontroller = async (req, res) => {
+  try {
+    //befor using redis three credential is required
+    // ->host,port and password
+    const { accesToken, refreshToken } = req.cookie;
+
+    //blacklist mein dalrahe haiaccesToken , refreshToken:-
+    if (accesToken) {
+      await redis.set(`Bearer:accessToken:${accesToken}`, "true");
+    }
+    if (refreshToken) {
+      await redis.set(`Bearer:accessToken:${refreshToken}`, "true");
+    }
+
+    res.clearCookie("accesToken");
+    res.clearCookie("refreshToken");
+
+    return res.status(200).json({
+      success: true,
+      message: "user logout successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

@@ -5,7 +5,7 @@ import Imagekit from "imagekit";
 
 const storageInstance = new Imagekit({
   urlEndpoint: process.env.IK_URL,
-  privateKey: process.env.IK_PRI_KEY,
+  privateKey: process.env.IK_PRI_KEY, 
   publicKey: process.env.IK_PUB_KEY,
 });
 
