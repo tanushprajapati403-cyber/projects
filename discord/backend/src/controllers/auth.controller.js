@@ -7,6 +7,7 @@ import { sendEmail } from "../services/email.services.js";
 import jwt from "jsonwebtoken";
 import { genrateOTP } from "../utils/otp.js";
 
+//normal authentication:-
 export const registercontroller = async (req, res) => {
   try {
     const { username, email, password, fullname, mobile_no, dob } = req.body;
@@ -35,8 +36,8 @@ export const registercontroller = async (req, res) => {
       profile_pic: uploadImage.url,
     });
 
-    const accesToken = genreateToken(user_.id, "15min");
-    const refreshToken = genreateToken(user_.id, "2d");
+    const accesToken = genreateToken(user._id, "15min");
+    const refreshToken = genreateToken(user._id, "2d");
 
     res.cookie("accesToken", accesToken, {
       httpOnly: true,
@@ -100,8 +101,8 @@ export const logincontroller = async (req, res) => {
       });
     }
 
-    const accessToken = genreateToken(user_.id, "15min");
-    const refreshToken = genreateToken(user_.id, "2d");
+    const accessToken = genreateToken(user._id, "15min");
+    const refreshToken = genreateToken(user._id, "2d");
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
@@ -131,6 +132,7 @@ export const logincontroller = async (req, res) => {
   }
 };
 
+// google Authentication:-
 export const googleUsercontroller = async (req, res) => {
   try {
     const { email, name, given_name, picture, sub } = req.user._json;
@@ -198,6 +200,7 @@ export const googleUsercontroller = async (req, res) => {
   }
 };
 
+//otp controllers forget password:-
 export const sendOTPcontroller = async (req, res) => {
   try {
     const { email } = req.body;
@@ -303,7 +306,7 @@ export const verifyOTPcontroller = async (req, res) => {
 
     const isvalid = bcrypt.compareSync(otp, hashedotp);
 
-    if (isvalid) {
+    if (!isvalid) {
       const attempts = await redis.incr(attemptKey);
 
       // Set 5-minute expiry on the first failed attempt
@@ -331,33 +334,27 @@ export const verifyOTPcontroller = async (req, res) => {
         attemptLeft: 5 - attempts,
       });
     }
-
-    // Generate a JWT reset token with a 10-minute expiry
-    const resetToken = genreateToken(userId, "10");
-
-    // Create a Redis reset session using the userId.
-    // The userId is used to match the JWT decoded.id
-    const resetKey = `password_reset:${userId}`;
-
-    await redis.set(resetKey, "valid", "EX", 600);
-
     // OTP is successfully verified,
     // so delete the OTP and attempt counter from Redis
     await redis.del(otpKey);
     await redis.del(attemptKey);
 
-    // Store the reset token in an HttpOnly cookie
-    // so JavaScript cannot directly access the token
-    res.cookie("resetToken", resetToken, {
-      httpOnly: true,
-      maxAge: 10 * 60 * 1000,
-      secure: false,
-      sameSite: "strict",
-    });
+    // Generate a JWT reset token with a 10-minute expiry for redis security
+    const resetToken = genreateToken(userId, "10");
+    const hashedResetToken = bcrypt.hashSync(resetToken, "10m");
+
+    //redis mein set kara at the end.....
+    await redis.set(
+      `reset-token-hashedResetToken-${email}`,
+      hashedResetToken,
+      "EX",
+      600,
+    );
 
     return res.status(200).json({
       success: true,
       message: "OTP verified successfully",
+      resetToken,
     });
   } catch (error) {
     return res.status(500).json({
@@ -369,8 +366,7 @@ export const verifyOTPcontroller = async (req, res) => {
 
 export const resetPasswordbyOTPcontroller = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
-    const resetToken = req.cookies.resetToken;
+    const { email, resetToken, newPassword } = req.body;
 
     if (!email || !resetToken || !newPassword) {
       return res.status(400).json({
@@ -379,17 +375,47 @@ export const resetPasswordbyOTPcontroller = async (req, res) => {
       });
     }
 
-    const resetKey = `password_reset:${userId}`;
-    const hasedResetTokken = await redis.get(resetKey);
+    const hasedResetTokken = await redis.get(
+      `reset-token-hashedResetToken-${email}`,
+    );
 
     if (!hasedResetTokken) {
       return res.status(400).json({
         success: false,
-        message:"" 
+        message:
+          "Your session for reset password is expired or invalid please try again..",
       });
     }
 
-    const user =  
+    // Optional: Agar token ko bcrypt se verify karna ho
+    const isValidToken = bcrypt.compareSync(resetToken, hasedResetTokken);
+    if (!isValidToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid reset token",
+      });
+    }
+
+    const user = await userModel.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "user not found",
+      });
+    }
+
+    //password save it mongodb.
+    user.password = newPassword;
+    await user.save();
+
+    // Kaam hone ke baad Redis se token hata do
+    await redis.del(`reset-token-hashedResetToken-${email}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "password reset successfully",
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -398,52 +424,7 @@ export const resetPasswordbyOTPcontroller = async (req, res) => {
   }
 };
 
-// export const resetPasswordcontroller = async (req, res) => {
-//   try {
-//     const { token, newPassword } = req.body;
-
-//     if (!token || !newPassword) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "token and new password is required",
-//       });
-//     }
-//     //Yeh line token ko verify karti hai ki wo asli hai aur expired to nahi hua. Agar token sahi hota hai
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//     if (!decoded) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "unauthorize",
-//       });
-//     }
-
-//     //token ke andar jo user ki ID mili thi (decoded.id), uska use karke database me us user ko dhoonda ja raha hai.
-//     const user = await userModel.findById(decoded.id);
-
-//     if (!user) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "user not found",
-//       });
-//     }
-
-//     user.password = newPassword;
-
-//     await user.save();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "password updated successfully",
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//     });
-//   }
-// };
-
+//logout controllers:-
 export const logoutUsercontroller = async (req, res) => {
   try {
     //befor using redis three credential is required
@@ -464,6 +445,198 @@ export const logoutUsercontroller = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "user logout successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+//refresh tokken for never login again to agian :-
+export const refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "unauthorized",
+      });
+    }
+
+    const verifyRefreshToken = jwt.verify(
+      "refreshToken",
+      process.env.JWT_SECRET,
+    );
+
+    const user = await userModel.findById(verifyRefreshToken.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const accessToken = genreateToken(user._id, "1m");
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      maxAge: 1 * 60 * 1000,
+      secure: false,
+      sameSite: "strict",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "access token re-generated successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+//delete user every where:-
+export const deleteUsercontroller = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status().json({
+        success: false,
+        message: "Password is required to delete your account",
+      });
+    }
+
+    const user = await userModel.findById(userId).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Incorrect password ! Account deletion failed. ",
+      });
+    }
+
+    // Database se user delete kar do
+    await userModel.findByIdAndDelete(userId);
+
+    res.clearCookie("accesToken");
+    res.clearCookie("refreshToken");
+
+    return res.status(200).json({
+      success: true,
+      message: "Your account has been deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// normal email password change :-
+export const forgetPasswordcontroller = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email)
+      return res.status(400).json({
+        success: false,
+        message: "email is required",
+      });
+
+    const user = await userModel.findOne({ email });
+
+    if (!user)
+      return res.status(404).json({
+        success: false,
+        message: "user not found",
+      });
+
+    const resetToken = genreateToken(user._id, "10m");
+
+    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+
+    await sendEmail(
+      user.email,
+      "Reset Your Kingsta Password",
+      `Reset your password using this link: ${resetUrl}`,
+      `
+        <h2>Reset Your Password</h2>
+        <p>Click the button below to reset your password.</p>
+
+        <a href="${resetUrl}">
+            Reset Password
+        </a>
+
+        <p>This link expires in 10 minutes.</p>
+    `,
+    );
+    return res.status(200).json({
+      success: true,
+      message: "email sent successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const resetPasswordcontroller = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "token and new password is required",
+      });
+    }
+    //Yeh line token ko verify karti hai ki wo asli hai aur expired to nahi hua. Agar token sahi hota hai
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: "unauthorize",
+      });
+    }
+
+    //token ke andar jo user ki ID mili thi (decoded.id), uska use karke database me us user ko dhoonda ja raha hai.
+    const user = await userModel.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "user not found",
+      });
+    }
+
+    user.password = newPassword;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "password updated successfully",
     });
   } catch (error) {
     return res.status(500).json({
