@@ -31,16 +31,25 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
     mobile_no: {
-      type: Number,
+      type: Number, //mongo db bass string ke liye rakta hain min max length.
       sparse: true,
       unique: true,
       minlength: 10,
       maxlength: 10,
       trim: true,
     },
+    status: {
+      type: String,
+      enum: ["online", "idle", "dnd", "offline"],
+    },
+    bio: {
+      type: String,
+      maxlength: 190,
+      default: "",
+    },
     profile_pic: {
       type: String,
-      // default: "",
+      default: "",
     },
     googleId: {
       type: String,

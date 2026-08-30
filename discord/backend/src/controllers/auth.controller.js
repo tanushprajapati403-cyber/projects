@@ -36,8 +36,8 @@ export const registercontroller = async (req, res) => {
       profile_pic: uploadImage.url,
     });
 
-    const accesToken = genreateToken(user._id, "15min");
-    const refreshToken = genreateToken(user._id, "2d");
+    const accesToken = genreateToken(newUser._id, "15min");
+    const refreshToken = genreateToken(newUser._id, "2d");
 
     res.cookie("accesToken", accesToken, {
       httpOnly: true,
@@ -92,7 +92,7 @@ export const logincontroller = async (req, res) => {
       });
     }
 
-    const checkpass = comparePass(password);
+    const checkpass = user.comparePass(password);
 
     if (!checkpass) {
       return res.status(401).json({
@@ -455,7 +455,7 @@ export const logoutUsercontroller = async (req, res) => {
 };
 
 //refresh tokken for never login again to agian :-
-export const refreshToken = async (req, res) => {
+export const resetToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
@@ -465,10 +465,7 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    const verifyRefreshToken = jwt.verify(
-      "refreshToken",
-      process.env.JWT_SECRET,
-    );
+    const verifyRefreshToken = jwt.verify(refreshToken, process.env.JWT_SECRET);
 
     const user = await userModel.findById(verifyRefreshToken.id);
 
@@ -503,12 +500,12 @@ export const refreshToken = async (req, res) => {
 //delete user every where:-
 export const deleteUsercontroller = async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._Id;
 
     const { password } = req.body;
 
     if (!password) {
-      return res.status().json({
+      return res.status(400).json({
         success: false,
         message: "Password is required to delete your account",
       });
@@ -523,7 +520,7 @@ export const deleteUsercontroller = async (req, res) => {
       });
     }
 
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
+    const isPasswordValid = user.comparePass(password, user.password);
 
     if (!isPasswordValid) {
       return res.status(400).json({

@@ -6,10 +6,10 @@ import {
   googleUsercontroller,
   logincontroller,
   logoutUsercontroller,
-  refreshToken,
   registercontroller,
   resetPasswordbyOTPcontroller,
   resetPasswordcontroller,
+  resetToken,
   sendOTPcontroller,
   verifyOTPcontroller,
 } from "../controllers/auth.controller.js";
@@ -46,7 +46,7 @@ router.post("/forget-password", forgetPasswordcontroller);
 router.post("/reset-password", resetPasswordcontroller);
 
 //refreshToken:-
-router.post("/refresh-token", refreshToken);
+router.post("/refresh-token", resetToken);
 
 //logout route:-
 router.post("/logout", authmiddelware, logoutUsercontroller);
