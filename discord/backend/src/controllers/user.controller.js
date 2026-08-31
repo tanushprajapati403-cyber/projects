@@ -1,61 +1,47 @@
 import userModel from "../models/user.model";
 import { sendFile } from "../services/storage.services";
+import ApiError from "../utils/ApiError";
+import ApiResponse from "../utils/ApiResponse";
 
-export const getMe = async (req, res) => {
+export const getMe = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const user = await userModel.findById(userId).select("-password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(404, "user not found");
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "user found successfully",
-      data: user,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "user found successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const getUserProfile = async (req, res) => {
+export const getUserProfile = async (req, res, next) => {
   try {
     const { username } = req.params;
 
     const user = await userModel.findOne({ username }).select("-password");
 
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(400, "user not found");
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "user found successfully",
-      data: user,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "user found successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const updateUserDetail = async (req, res) => {
+export const updateUserDetail = async (req, res, next) => {
   try {
     const userId = req.user._id;
-    const { fullname, mobile_no, dob, bio , profile_pic} = req.body;
+    const { fullname, mobile_no, dob, bio, profile_pic } = req.body;
 
     const updateData = {};
     if (fullname) updateData.fullname = fullname;
@@ -71,44 +57,32 @@ export const updateUserDetail = async (req, res) => {
       .select("-password");
 
     if (!updateuser) {
-      return res.status(400).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(400, "user not found");
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "user profile updated successfully",
-      data: updateuser,
-    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, updateuser, "user profile updated successfully"),
+      );
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const updateUserProfile = async (req, res) => {
+export const updateUserProfile = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const file = req.file;
 
     if (!file) {
-      return res.status(400).json({
-        success: false,
-        message: "file is required",
-      });
+      throw new ApiError(400, "file is required");
     }
 
     const user = await userModel.findById(userId).select("-password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(404, "user not found");
     }
 
     const uploadFile = await sendFile(file.buffer, file.originalname);
@@ -117,89 +91,65 @@ export const updateUserProfile = async (req, res) => {
 
     await user.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "profile pic updated successfully",
-      data: user,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "profile pic updated successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const changePassword = async (req, res) => {
+export const changePassword = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { password, newPassword } = req.body;
 
     if (!password || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "both fields are required",
-      });
+      throw new ApiError(400, "both fields are required");
     }
 
     if (password === newPassword) {
-      return res.status(409).json({
-        success: false,
-        message: "enter different password",
-      });
+      throw new ApiError(409, "enter different password");
     }
 
     const user = await userModel.findById(userId).select("+password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user details not found",
-      });
+      throw new ApiError(404, "user details not found");
     }
 
     // Check karo ki Google auth wala user toh nahi hai (password na ho toh)
     if (!user.password) {
-      return res.status(400).json({
-        success: false,
-        message: "You logged in via Google, password change is not applicable.",
-      });
+      throw new ApiError(
+        400,
+        "You logged in via Google, password change is not applicable.",
+      );
     }
 
     const isPasswordMatched = user.comparePass(password);
 
     if (!isPasswordMatched) {
-      return res.status(400).json({
-        success: false,
-        message: "incorrect password",
-      });
+      throw new ApiError(400, "incorrect password");
     }
 
     user.password = newPassword;
 
     await user.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "password changed successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "password changed successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const searchUser = async (req, res) => {
+export const searchUser = async (req, res, next) => {
   try {
     const { query } = req.query;
 
     if (!query) {
-      return res.status(400).json({
-        success: false,
-        message: "search query required",
-      });
+      throw new ApiError(400, "search query required");
     }
 
     const user = await userModel
@@ -212,35 +162,24 @@ export const searchUser = async (req, res) => {
       .select("username fullname profile_pic");
 
     if (user.length == 0) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(404, "user not found");
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "user fetched successfully",
-      data: user,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "user fetched successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const updateStatus = async (req, res) => {
+export const updateStatus = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: "Status are required",
-      });
+      throw new ApiError(400, "Status are required");
     }
 
     const user = await userModel
@@ -248,22 +187,13 @@ export const updateStatus = async (req, res) => {
       .select("-password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user not find",
-      });
+      throw new ApiError(404, "user not find");
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Status updated successfully",
-      data: user,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "Status updated successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
- 

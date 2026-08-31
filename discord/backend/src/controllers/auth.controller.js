@@ -6,24 +6,23 @@ import redis from "../config/redis.js";
 import { sendEmail } from "../services/email.services.js";
 import jwt from "jsonwebtoken";
 import { genrateOTP } from "../utils/otp.js";
+import ApiError from "../utils/ApiError.js";
+import ApiResponse from "../utils/ApiResponse.js";
 
 //normal authentication:-
-export const registercontroller = async (req, res) => {
+export const registercontroller = async (req, res, next) => {
   try {
     const { username, email, password, fullname, mobile_no, dob } = req.body;
     const file = req.file;
 
     if (!username || !email || !password || !fullname) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
+      throw new ApiError(400, "All fields are required");
     }
 
     let uploadImage = null;
 
     if (file) {
-      const uploadImage = await sendFile(file.buffer, file.originalname);
+      uploadImage = await sendFile(file.buffer, file.originalname);
     }
 
     const newUser = await userModel.create({
@@ -36,12 +35,12 @@ export const registercontroller = async (req, res) => {
       profile_pic: uploadImage.url,
     });
 
-    const accesToken = genreateToken(newUser._id, "15min");
+    const accessToken = genreateToken(newUser._id, "15min");
     const refreshToken = genreateToken(newUser._id, "2d");
 
-    res.cookie("accesToken", accesToken, {
+    res.cookie("accesToken", accessToken, {
       httpOnly: true,
-      maxAge: 15 * 60 * 100,
+      maxAge: 15 * 60 * 1000,
       secure: false,
       sameSite: "strict",
     });
@@ -53,52 +52,36 @@ export const registercontroller = async (req, res) => {
       sameSite: "strict",
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "user register succesfully",
-    });
+    return res
+      .status(201)
+      .json(new ApiResponse(201, null, "User registered successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "internal servcer error",
-    });
+    next(error);
   }
 };
 
-export const logincontroller = async (req, res) => {
+export const logincontroller = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "every fields are required",
-      });
+      throw new ApiError(400, "every fields are required");
     }
 
-    const user = await userModel.findOne({ email }).select("password");
+    const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "every fields are required",
-      });
+      throw new ApiError(401, "Invalid email or password");
     }
 
-    if (!user.password || !user.authProvider === "google") {
-      return res.status(400).json({
-        success: false,
-        message: "continue with google",
-      });
+    if (!user.password || user.authProvider === "google") {
+      throw new ApiError(400, "continue with google");
     }
 
     const checkpass = user.comparePass(password);
 
     if (!checkpass) {
-      return res.status(401).json({
-        success: false,
-        message: "invalid credential",
-      });
+      throw new ApiError(401, "invalid credential");
     }
 
     const accessToken = genreateToken(user._id, "15min");
@@ -111,7 +94,7 @@ export const logincontroller = async (req, res) => {
 
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      maxAge: 15 * 60 * 100,
+      maxAge: 15 * 60 * 1000,
       secure: false,
       sameSite: "strict",
     });
@@ -119,21 +102,16 @@ export const logincontroller = async (req, res) => {
     let userData = user.toObject();
     delete userData.password;
 
-    return res.status(201).json({
-      success: true,
-      message: "user are login",
-      data: userData,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, userData, "user are login"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "internal servcer error",
-    });
+    next(error);
   }
 };
 
 // google Authentication:-
-export const googleUsercontroller = async (req, res) => {
+export const googleUsercontroller = async (req, res, next) => {
   try {
     const { email, name, given_name, picture, sub } = req.user._json;
 
@@ -158,11 +136,9 @@ export const googleUsercontroller = async (req, res) => {
         maxAge: 2 * 24 * 60 * 60 * 1000,
       });
 
-      return res.status(200).json({
-        success: true,
-        message: "user loggedin succssfully",
-        user,
-      });
+      return res
+        .status(200)
+        .json(new ApiResponse(200, user, "user loggedin succssfully"));
     }
 
     const newUser = await userModel.create({
@@ -187,37 +163,26 @@ export const googleUsercontroller = async (req, res) => {
       maxAge: 2 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "user register successfully",
-      newUser,
-    });
+    return res
+      .status(201)
+      .json(new ApiResponse(201, newUser, "user register successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
 //otp controllers forget password:-
-export const sendOTPcontroller = async (req, res) => {
+export const sendOTPcontroller = async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "email is required",
-      });
+      throw new ApiError(400, "email is required");
     }
 
     const user = await userModel.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user is not found",
-      });
+      throw new ApiError(404, "user is not found");
     }
 
     //genrate otp 4 no. ki :-
@@ -264,42 +229,28 @@ export const sendOTPcontroller = async (req, res) => {
           </div>`,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "otp sent successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "otp sent successfully"));
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error,
-    });
+    next(error);
   }
 };
 
-export const verifyOTPcontroller = async (req, res) => {
+export const verifyOTPcontroller = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      {
-        return res.status(400).json({
-          success: false,
-          message: "email and otp is required",
-        });
-      }
+      throw new ApiError(400, "email and otp is required");
     }
 
     const otpKey = `otp:${email}`;
-    const attemptKey = `otpattempts:${email}`;
+    const attemptKey = `otp_attempts:${email}`;
     const data = await redis.get(otpKey);
 
     if (!data) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP is expired or not found",
-      });
+      throw new ApiError(400, "OTP is expired or not found");
     }
 
     const { otp: hashedotp, userId } = JSON.parse(data);
@@ -322,17 +273,15 @@ export const verifyOTPcontroller = async (req, res) => {
         await redis.del(otpKey);
         await redis.del(attemptKey);
 
-        return res.status(429).json({
-          success: false,
-          message: "Too many invalid attempts. Please request a new OTP.",
-        });
+        throw new ApiError(
+          429,
+          "Too many invalid attempts. Please request a new OTP.",
+        );
       }
 
-      return res.status(400).json({
-        success: false,
-        message: "OTP is invalid",
-        attemptLeft: 5 - attempts,
-      });
+      throw new ApiError(400, "OTP is invalid", [
+        { attemptLeft: 5 - attempts },
+      ]);
     }
     // OTP is successfully verified,
     // so delete the OTP and attempt counter from Redis
@@ -340,8 +289,8 @@ export const verifyOTPcontroller = async (req, res) => {
     await redis.del(attemptKey);
 
     // Generate a JWT reset token with a 10-minute expiry for redis security
-    const resetToken = genreateToken(userId, "10");
-    const hashedResetToken = bcrypt.hashSync(resetToken, "10m");
+    const resetToken = genreateToken(userId, "10m");
+    const hashedResetToken = bcrypt.hashSync(resetToken, "10");
 
     //redis mein set kara at the end.....
     await redis.set(
@@ -351,28 +300,23 @@ export const verifyOTPcontroller = async (req, res) => {
       600,
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP verified successfully",
-      resetToken,
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, resetToken, "OTP verified successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const resetPasswordbyOTPcontroller = async (req, res) => {
+export const resetPasswordbyOTPcontroller = async (req, res, next) => {
   try {
     const { email, resetToken, newPassword } = req.body;
 
     if (!email || !resetToken || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "email , resetPassword , newPassword are required",
-      });
+      throw new ApiError(
+        400,
+        "email , resetPassword , newPassword are required",
+      );
     }
 
     const hasedResetTokken = await redis.get(
@@ -380,29 +324,22 @@ export const resetPasswordbyOTPcontroller = async (req, res) => {
     );
 
     if (!hasedResetTokken) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Your session for reset password is expired or invalid please try again..",
-      });
+      throw new ApiError(
+        400,
+        "Your session for reset password is expired or invalid please try again..",
+      );
     }
 
     // Optional: Agar token ko bcrypt se verify karna ho
     const isValidToken = bcrypt.compareSync(resetToken, hasedResetTokken);
     if (!isValidToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid reset token",
-      });
+      throw new ApiError(400, "Invalid reset token");
     }
 
     const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(404, "user not found");
     }
 
     //password save it mongodb.
@@ -412,57 +349,56 @@ export const resetPasswordbyOTPcontroller = async (req, res) => {
     // Kaam hone ke baad Redis se token hata do
     await redis.del(`reset-token-hashedResetToken-${email}`);
 
-    return res.status(200).json({
-      success: true,
-      message: "password reset successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "password reset successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
 //logout controllers:-
-export const logoutUsercontroller = async (req, res) => {
+export const logoutUsercontroller = async (req, res, next) => {
   try {
     //befor using redis three credential is required
     // ->host,port and password
-    const { accesToken, refreshToken } = req.cookie;
+    const { accessToken, refreshToken } = req.cookies;
 
     //blacklist mein dalrahe haiaccesToken , refreshToken:-
-    if (accesToken) {
-      await redis.set(`Bearer:accessToken:${accesToken}`, "true");
+    if (accessToken) {
+      await redis.set(
+        `Bearer:accessToken:${accessToken}`,
+        "true",
+        "EX",
+        15 * 60,
+      );
     }
     if (refreshToken) {
-      await redis.set(`Bearer:accessToken:${refreshToken}`, "true");
+      await redis.set(
+        `Bearer:refreshToken:${refreshToken}`,
+        "true",
+        "EX",
+        2 * 24 * 60 * 60,
+      );
     }
 
-    res.clearCookie("accesToken");
+    res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
 
-    return res.status(200).json({
-      success: true,
-      message: "user logout successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "user logout successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
 //refresh tokken for never login again to agian :-
-export const resetToken = async (req, res) => {
+export const resetToken = async (req, res, next) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
-      return res.status(401).json({
-        success: false,
-        message: "unauthorized",
-      });
+      throw new ApiError(401, "unauthorized");
     }
 
     const verifyRefreshToken = jwt.verify(refreshToken, process.env.JWT_SECRET);
@@ -470,10 +406,7 @@ export const resetToken = async (req, res) => {
     const user = await userModel.findById(verifyRefreshToken.id);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      throw new ApiError(404, "User not found");
     }
 
     const accessToken = genreateToken(user._id, "1m");
@@ -485,86 +418,69 @@ export const resetToken = async (req, res) => {
       sameSite: "strict",
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "access token re-generated successfully",
-    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "access token re-generated successfully"),
+      );
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
 //delete user every where:-
-export const deleteUsercontroller = async (req, res) => {
+export const deleteUsercontroller = async (req, res, next) => {
   try {
-    const userId = req.user._Id;
+    const userId = req.user._id;
 
     const { password } = req.body;
 
     if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required to delete your account",
-      });
+      throw new ApiError(400, "Password is required to delete your account");
     }
 
     const user = await userModel.findById(userId).select("+password");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      throw new ApiError(404, "User not found");
     }
 
-    const isPasswordValid = user.comparePass(password, user.password);
+    const isPasswordValid = user.comparePass(password);
 
     if (!isPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Incorrect password ! Account deletion failed. ",
-      });
+      throw new ApiError(400, "Incorrect password ! Account deletion failed. ");
     }
 
     // Database se user delete kar do
     await userModel.findByIdAndDelete(userId);
 
-    res.clearCookie("accesToken");
+    res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
 
-    return res.status(200).json({
-      success: true,
-      message: "Your account has been deleted successfully",
-    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          null,
+          "Your account has been deleted successfully",
+        ),
+      );
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
 // normal email password change :-
-export const forgetPasswordcontroller = async (req, res) => {
+export const forgetPasswordcontroller = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    if (!email)
-      return res.status(400).json({
-        success: false,
-        message: "email is required",
-      });
+    if (!email) throw new ApiError(400, "email is required");
 
     const user = await userModel.findOne({ email });
 
-    if (!user)
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+    if (!user) throw new ApiError(404, "user not found");
 
     const resetToken = genreateToken(user._id, "10m");
 
@@ -585,60 +501,43 @@ export const forgetPasswordcontroller = async (req, res) => {
         <p>This link expires in 10 minutes.</p>
     `,
     );
-    return res.status(200).json({
-      success: true,
-      message: "email sent successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "email sent successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
 
-export const resetPasswordcontroller = async (req, res) => {
+export const resetPasswordcontroller = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "token and new password is required",
-      });
+      throw new ApiError(400, "token and new password is required");
     }
     //Yeh line token ko verify karti hai ki wo asli hai aur expired to nahi hua. Agar token sahi hota hai
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     if (!decoded) {
-      return res.status(401).json({
-        success: false,
-        message: "unauthorize",
-      });
+      throw new ApiError(401, "unauthorize");
     }
 
     //token ke andar jo user ki ID mili thi (decoded.id), uska use karke database me us user ko dhoonda ja raha hai.
     const user = await userModel.findById(decoded.id);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
+      throw new ApiError(404, "user not found");
     }
 
     user.password = newPassword;
 
     await user.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "password updated successfully",
-    });
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "password updated successfully"));
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    next(error);
   }
 };
