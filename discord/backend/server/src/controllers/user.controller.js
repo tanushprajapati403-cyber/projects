@@ -27,7 +27,7 @@ export const getUserProfile = async (req, res, next) => {
     const user = await userModel.findOne({ username }).select("-password");
 
     if (!user) {
-      throw new ApiError(400, "user not found");
+      throw new ApiError(404, "user not found");
     }
 
     return res
@@ -41,14 +41,13 @@ export const getUserProfile = async (req, res, next) => {
 export const updateUserDetail = async (req, res, next) => {
   try {
     const userId = req.user._id;
-    const { fullname, mobile_no, dob, bio, profile_pic } = req.body;
+    const { fullname, mobile_no, dob, bio } = req.body;
 
     const updateData = {};
     if (fullname) updateData.fullname = fullname;
     if (mobile_no) updateData.mobile_no = mobile_no;
     if (dob) updateData.dob = dob;
     if (bio !== undefined) updateData.bio = bio;
-    if (profile_pic !== undefined) updateData.profile_pic = profile_pic;
 
     const updateuser = await userModel
       .findByIdAndUpdate(userId, updateData, {
@@ -57,7 +56,7 @@ export const updateUserDetail = async (req, res, next) => {
       .select("-password");
 
     if (!updateuser) {
-      throw new ApiError(400, "user not found");
+      throw new ApiError(404, "user not found");
     }
 
     return res
@@ -87,9 +86,17 @@ export const updateUserProfile = async (req, res, next) => {
 
     const uploadFile = await sendFile(file.buffer, file.originalname);
 
-    user.profile_pic = uploadFile.url;
+    const updatedUser = await userModel
+      .findByIdAndUpdate(
+        userId,
+        { profile_pic: uploadFile.url },
+        { new: true, runValidators: true },
+      )
+      .select("-password");
 
-    await user.save();
+    if (!updatedUser) {
+      throw new ApiError(404, "user not found");
+    }
 
     return res
       .status(200)
@@ -161,7 +168,7 @@ export const searchUser = async (req, res, next) => {
       })
       .select("username fullname profile_pic");
 
-    if (user.length == 0) {
+    if (user.length === 0) {
       throw new ApiError(404, "user not found");
     }
 

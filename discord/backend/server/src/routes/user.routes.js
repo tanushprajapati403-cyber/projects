@@ -5,6 +5,7 @@ import {
   getMe,
   getUserProfile,
   searchUser,
+  updateStatus,
   updateUserDetail,
   updateUserProfile,
 } from "../controllers/user.controller.js";
@@ -20,8 +21,9 @@ router.patch(
   upload.single("profile_pic"),
   updateUserProfile,
 );
+router.patch("/update-status", authmiddelware, updateStatus);
 router.patch("/chnage-password", authmiddelware, changePassword);
-router.get("/search" , authmiddelware , searchUser);
+router.get("/search", authmiddelware, searchUser);
 router.get("/:username", authmiddelware, getUserProfile);
 
 export default router;

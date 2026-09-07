@@ -9,12 +9,12 @@ const storageInstance = new Imagekit({
   publicKey: process.env.IK_PUB_KEY,
 });
 
-export const sendFile = async (file, fileName) => {
+export const sendFile = async (file , fileName) => {
   let obj = {
     file,
     fileName,
-    folder: "decord",
+    folder: "discord",
   };
 
   return await storageInstance.upload(obj);
-};
+};z
