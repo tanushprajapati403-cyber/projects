@@ -4,5 +4,5 @@ const chanaleSchema =  new  mongoose.Schema({
 
 })
 
-const chanalModel = mongoose.model("chanales" ,  chanaleSchema);\
+const chanalModel = mongoose.model("chanales" ,  chanaleSchema);
 export default chanalModel;

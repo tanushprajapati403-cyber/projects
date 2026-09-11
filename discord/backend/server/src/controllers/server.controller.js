@@ -246,10 +246,33 @@ export const generateinvitecode = async (req, res, next) => {
   }
 };
 
-//User khud ko server se leave kar sakta hai (Owner leave nahi kar sakta jab tak transfer na kare).
-export const leaveServer = async (req, res, next) => {
+//Jab koi user invite link par click karta hai, toh join karne se pehle server ka naam, icon, aur member count dekhne ke liye (preview).
+export const getServerByInviteCode = async (req, res, next) => {
+  try {
+    const { invitecode } = req.params;
+
+    const server = await serverModel
+      .findOne({ invitecode })
+      .select("name description icon banner isPublic");
+
+    if (!server) {
+      throw new ApiError(404, "Invalid or expired invite code");
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, server, "Server preview fetched successfully"),
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const transferOwnership = async (req, res, next) => {
   try {
     const { serverId } = req.params;
+    const { newOwnerId } = req.body;
 
     const server = await serverModel.findById(serverId);
 
@@ -257,25 +280,35 @@ export const leaveServer = async (req, res, next) => {
       throw new ApiError(404, "Server not found");
     }
 
-    if (server.owner.toString() === req.user.id) {
+    if (server.owner.toString() !== req.user.id) {
       throw new ApiError(
         403,
-        "Server owner cannot leave the server. Transfer ownership or delete the server instead.",
+        "Only the current server owner can transfer ownership",
       );
     }
 
-    const member = await serverModel.findOneAndDelete({
-      user: req.user.id,
+    if (server.owner.toString() === newOwnerId) {
+      throw new ApiError(400, "You are already the owner of this server");
+    }
+
+    const newOwnerMember = await serverMemberModel.findOne({
+      user: newOwnerId,
       server: serverId,
     });
 
-    if (!member) {
-      throw new ApiError(404, "You are not a member of this server");
+    if (!newOwnerMember) {
+      throw new ApiError(
+        404,
+        "The target user must be a member of this server",
+      );
     }
+
+    server.owner = newOwnerId;
+    await server.save();
 
     return res
       .status(200)
-      .json(new ApiResponse(200, null, "Successfully left the server"));
+      .json(new ApiResponse(200, server, "Ownership transferred successfully"));
   } catch (error) {
     next(error);
   }
