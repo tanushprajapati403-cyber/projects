@@ -1,8 +1,8 @@
-import roleModel from "../models/role.model";
-import serverModel from "../models/server.model";
-import serverMemberModel from "../models/servermember.model";
-import ApiError from "../utils/ApiError";
-import ApiResponse from "../utils/ApiResponse";
+import roleModel from "../models/role.model.js";
+import serverModel from "../models/server.model.js";
+import serverMemberModel from "../models/servermember.model.js";
+import ApiError from "../utils/ApiError.js";
+import ApiResponse from "../utils/ApiResponse.js";
 
 export const getServerMember = async (req, res, next) => {
   try {
@@ -12,6 +12,15 @@ export const getServerMember = async (req, res, next) => {
 
     if (!server) {
       throw new ApiError(404, "server not found");
+    }
+
+    const requesterMember = await serverMemberModel.findOne({
+      user: req.user.id,
+      server: serverId,
+    });
+
+    if (!requesterMember) {
+      throw new ApiError(403, "You are not a member of this server");
     }
 
     const members = await serverMemberModel

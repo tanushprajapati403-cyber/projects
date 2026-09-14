@@ -9,6 +9,7 @@ import morgan from "morgan";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import serverRoutes from "./routes/server.routes.js";
 import serverMemberRoutes from "./routes/serverMember.routes.js";
+import roleRouter from "./routes/role.routes.js";
 
 const app = express();
 app.use(cookieParser());
@@ -20,6 +21,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/server", serverRoutes);
 app.use("/api/serverMember", serverMemberRoutes);
+app.use("/api/role" , roleRouter)
 
 app.use(errorMiddleware);
 

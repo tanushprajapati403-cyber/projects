@@ -6,13 +6,14 @@ const roleSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
-    },
+    // user: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "users",
+    // },
     server: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "servers",
+      required: true,
     },
     permissions: {
       type: [String],
@@ -24,7 +25,7 @@ const roleSchema = new mongoose.Schema(
     },
     color: {
       type: String,
-      default: "#000000",
+      default: "#99AAB5",
     },
   },
   {

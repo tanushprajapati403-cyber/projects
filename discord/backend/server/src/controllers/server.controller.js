@@ -1,11 +1,11 @@
-import roleModel from "../models/role.model";
-import serverModel from "../models/server.model";
-import { createServerMember } from "../services/serverMember.services";
-import { sendFile } from "../services/storage.services";
-import { generateInviteCode } from "../utils/invitecode";
-import ApiResponse from "../utils/ApiResponse";
-import ApiError from "../utils/ApiError";
-import serverMemberModel from "../models/servermember.model";
+import roleModel from "../models/role.model.js";
+import serverModel from "../models/server.model.js";
+import { createServerMember } from "../services/serverMember.services.js";
+import { sendFile } from "../services/storage.services.js";
+import { generateInviteCode } from "../utils/invitecode.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
+import serverMemberModel from "../models/servermember.model.js";
 
 //Naya server create karta hai, owner set karta hai, aur automatically creator ko member/admin add karta hai.
 export const createServer = async (req, res, next) => {
@@ -118,6 +118,15 @@ export const getServerdetail = async (req, res, next) => {
 
     if (!server) {
       throw new ApiError(404, "server not found");
+    }
+
+    const requesterMember = await serverMemberModel.findOne({
+      user: req.user.id,
+      server: serverId,
+    });
+
+    if (!requesterMember) {
+      throw new ApiError(403, "You are not a member of this server");
     }
 
     return res

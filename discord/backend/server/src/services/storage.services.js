@@ -17,4 +17,4 @@ export const sendFile = async (file , fileName) => {
   };
 
   return await storageInstance.upload(obj);
-};z
+};

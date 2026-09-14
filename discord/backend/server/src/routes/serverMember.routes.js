@@ -1,12 +1,12 @@
 import express from "express";
-import { authmiddelware } from "../middlewares/auth.middleware";
+import { authmiddelware } from "../middlewares/auth.middleware.js";
 import {
   getMyServer,
   getServerMember,
   leaveServer,
   removeMember,
   updateMemberRole,
-} from "../controllers/serverMember.controller";
+} from "../controllers/serverMember.controller.js";
 
 const router = express.Router();
 

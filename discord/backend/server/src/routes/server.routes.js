@@ -1,5 +1,5 @@
 import express from "express";
-import { authmiddelware } from "../middlewares/auth.middleware";
+import { authmiddelware } from "../middlewares/auth.middleware.js";
 import {
   createServer,
   deleteServer,
@@ -9,8 +9,8 @@ import {
   joinServer,
   transferOwnership,
   updateServer,
-} from "../controllers/server.controller";
-import upload from "../config/multer";
+} from "../controllers/server.controller.js";
+import upload from "../config/multer.js";
 
 const router = express.Router();
 
