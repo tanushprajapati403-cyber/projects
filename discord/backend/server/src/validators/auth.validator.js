@@ -1,4 +1,5 @@
-import body from "express-validator";
+import { body } from "express-validator";
+import { validate } from "../middlewares/validate.middleware.js";
 
 export const registerValidator = [
   body("username")
@@ -42,6 +43,8 @@ export const registerValidator = [
     .isISO8601()
     .toDate()
     .withMessage("Invalid date format"),
+
+  validate,
 ];
 
 export const loginValidators = [
@@ -54,6 +57,8 @@ export const loginValidators = [
     .normalizeEmail(),
 
   body("password").trim().notEmpty().withMessage("Password is required"),
+
+  validate,
 ];
 
 export const sendOTPValidators = [
@@ -64,6 +69,8 @@ export const sendOTPValidators = [
     .isEmail()
     .withMessage("Please enter a valid email address")
     .normalizeEmail(),
+
+  validate,
 ];
 
 export const verifyOTPValidators = [
@@ -83,6 +90,8 @@ export const verifyOTPValidators = [
     .withMessage("OTP must be 4 digits")
     .isNumeric()
     .withMessage("OTP must contain only numbers"),
+
+  validate,
 ];
 
 export const resetPasswordbyOTPValidators = [
@@ -102,6 +111,8 @@ export const resetPasswordbyOTPValidators = [
     .withMessage("New password is required")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
+
+  validate,
 ];
 
 export const deleteUserValidators = [
@@ -109,6 +120,8 @@ export const deleteUserValidators = [
     .trim()
     .notEmpty()
     .withMessage("Password is required to delete account"),
+
+  validate,
 ];
 
 export const forgetPasswordValidators = [
@@ -119,6 +132,8 @@ export const forgetPasswordValidators = [
     .isEmail()
     .withMessage("Please enter a valid email address")
     .normalizeEmail(),
+
+  validate,
 ];
 
 export const resetPasswordValidators = [
@@ -130,4 +145,6 @@ export const resetPasswordValidators = [
     .withMessage("New password is required")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
+
+  validate,
 ];

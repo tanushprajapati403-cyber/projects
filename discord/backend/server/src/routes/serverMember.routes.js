@@ -7,16 +7,40 @@ import {
   removeMember,
   updateMemberRole,
 } from "../controllers/serverMember.controller.js";
+import {
+  getMyServerValidator,
+  getServerMemberValidator,
+  leaveServerValidator,
+  removeMemberValidator,
+  updateMemberRoleValidator,
+} from "../validators/serverMember.validator.js";
 
 const router = express.Router();
 
-router.get("/:serverId/members", authmiddelware, getServerMember);
-router.get("/my-servers", authmiddelware, getMyServer);
-router.delete("/:serverId/leave", authmiddelware, leaveServer);
-router.delete("/:serverId/members/:userId", authmiddelware, removeMember);
+router.get(
+  "/:serverId/members",
+  authmiddelware,
+  getServerMemberValidator,
+  getServerMember,
+);
+router.get("/my-servers", authmiddelware, getMyServerValidator, getMyServer);
+
+router.delete(
+  "/:serverId/leave",
+  authmiddelware,
+  leaveServerValidator,
+  leaveServer,
+);
+router.delete(
+  "/:serverId/members/:userId",
+  authmiddelware,
+  removeMemberValidator,
+  removeMember,
+);
 router.patch(
   "/:serverId/members/:userId/role",
   authmiddelware,
+  updateMemberRoleValidator,
   updateMemberRole,
 );
 

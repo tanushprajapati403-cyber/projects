@@ -1,44 +1,33 @@
 import { body, param, query } from "express-validator";
+import { validate } from "../middlewares/validate.middleware.js";
 
 export const getUserProfileValidator = [
-  param("username")
-    .trim()
-    .notEmpty()
-    .withMessage("Username parameter is required"),
+  param("username").trim().notEmpty().withMessage("Username is required"),
+
+  validate,
 ];
 
 export const updateUserDetailValidator = [
   body("fullname")
-    .optional({ values: "falsy" })
+    .optional()
     .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage("Fullname must be between 2 and 50 characters"),
+    .notEmpty()
+    .withMessage("Fullname cannot be empty"),
 
   body("mobile_no")
-    .optional({ values: "falsy" })
+    .optional()
     .trim()
-    .isMobilePhone()
-    .withMessage("Invalid mobile number")
-    .isLength({ min: 10, max: 10 })
-    .withMessage("Mobile number must be 10 digits"),
+    .notEmpty()
+    .withMessage("Mobile number cannot be empty"),
 
   body("dob")
-    .optional({ values: "falsy" })
+    .optional()
     .isISO8601()
-    .toDate()
-    .withMessage("Invalid date format"),
+    .withMessage("Invalid date format for date of birth (YYYY-MM-DD)"),
 
-  body("bio")
-    .optional({ values: "falsy" })
-    .trim()
-    .isLength({ max: 200 })
-    .withMessage("Bio cannot exceed 200 characters"),
+  body("bio").optional().trim(),
 
-  body("profile_pic")
-    .optional({ values: "falsy" })
-    .trim()
-    .isURL()
-    .withMessage("Invalid profile picture URL"),
+  validate,
 ];
 
 export const changePasswordValidator = [
@@ -52,18 +41,19 @@ export const changePasswordValidator = [
     .notEmpty()
     .withMessage("New password is required")
     .isLength({ min: 6 })
-    .withMessage("New password must be at least 6 characters"),
+    .withMessage("New password must be at least 6 characters long"),
+
+  validate,
 ];
 
 export const searchUserValidator = [
   query("query").trim().notEmpty().withMessage("Search query is required"),
+
+  validate,
 ];
 
 export const updateStatusValidator = [
-  body("status")
-    .trim()
-    .notEmpty()
-    .withMessage("Status is required")
-    .isLength({ max: 100 })
-    .withMessage("Status cannot exceed 100 characters"),
+  body("status").trim().notEmpty().withMessage("Status is required"),
+
+  validate,
 ];
