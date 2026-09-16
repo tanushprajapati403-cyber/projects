@@ -100,7 +100,7 @@ export const updateUserProfile = async (req, res, next) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, user, "profile pic updated successfully"));
+      .json(new ApiResponse(200, updatedUser, "profile pic updated successfully"));
   } catch (error) {
     next(error);
   }

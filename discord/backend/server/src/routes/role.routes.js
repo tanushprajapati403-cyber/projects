@@ -7,13 +7,45 @@ import {
   getServerRoles,
   updateRole,
 } from "../controllers/role.controller.js";
+import {
+  creatreRoleValidator,
+  deleteRoleValidator,
+  getroleByIdValidator,
+  getServerRolesValidator,
+  updateRoleValidator,
+} from "../validators/role.validator.js";
 
 const router = express.Router();
 
-router.post("/create-role/:serverId", authmiddelware, creatreRole);
-router.get("/roles/:serverId", authmiddelware, getServerRoles);
-router.get("/:serverId/role/:roleId", authmiddelware, getroleById);
-router.patch("/:serverId/role/:roleId", authmiddelware, updateRole);
-router.delete("/:serverId/role/:roleId", authmiddelware, deleteRole);
+router.post(
+  "/create-role/:serverId",
+  authmiddelware,
+  creatreRoleValidator,
+  creatreRole,
+);
+router.get(
+  "/roles/:serverId",
+  authmiddelware,
+  getServerRolesValidator,
+  getServerRoles,
+);
+router.get(
+  "/:serverId/role/:roleId",
+  authmiddelware,
+  getroleByIdValidator,
+  getroleById,
+);
+router.patch(
+  "/:serverId/role/:roleId",
+  authmiddelware,
+  updateRoleValidator,
+  updateRole,
+);
+router.delete(
+  "/:serverId/role/:roleId",
+  authmiddelware,
+  deleteRoleValidator,
+  deleteRole,
+);
 
 export default router;

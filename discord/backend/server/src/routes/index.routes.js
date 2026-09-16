@@ -4,6 +4,7 @@ import userRoutes from "../routes/user.routes.js";
 import serverRoutes from "../routes/server.routes.js";
 import serverMemberRoutes from "../routes/serverMember.routes.js";
 import roleRouter from "../routes/role.routes.js";
+import channelRouter from "../routes/channel.routes.js";
 
 const router = express.Router();
 
@@ -12,5 +13,6 @@ router.use("/user", userRoutes);
 router.use("/server", serverRoutes);
 router.use("/serverMember", serverMemberRoutes);
 router.use("/role", roleRouter);
+router.use("/channel", channelRouter);
 
 export default router;
