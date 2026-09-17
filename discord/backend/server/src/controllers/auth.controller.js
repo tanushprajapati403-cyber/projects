@@ -32,7 +32,7 @@ export const registercontroller = async (req, res, next) => {
       fullname,
       mobile_no,
       dob,
-      profile_pic: uploadImage.url,
+      profile_pic: uploadImage?.url || "",
     });
 
     const accessToken = genreateToken(newUser._id, "15min");
@@ -54,8 +54,9 @@ export const registercontroller = async (req, res, next) => {
 
     return res
       .status(201)
-      .json(new ApiResponse(201, null, "User registered successfully"));
+      .json(new ApiResponse(201, newUser, "User registered successfully"));
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -197,10 +198,7 @@ export const sendOTPcontroller = async (req, res, next) => {
     //redis ke method hai save karne bali time control kar ke use :-
     await redis.set(
       otpKey,
-      JSON.stringify({
-        otp: hashedotp,
-        userId: user._id.toString(),
-      }),
+     hashedotp,
       "EX",
       300,
     );
@@ -233,6 +231,7 @@ export const sendOTPcontroller = async (req, res, next) => {
       .status(200)
       .json(new ApiResponse(200, null, "otp sent successfully"));
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -247,15 +246,15 @@ export const verifyOTPcontroller = async (req, res, next) => {
 
     const otpKey = `otp:${email}`;
     const attemptKey = `otp_attempts:${email}`;
-    const data = await redis.get(otpKey);
+    const hashedOtp = await redis.get(otpKey);
+    const attempt =  await redis.get(attemptKey);
 
-    if (!data) {
+    if (!hashedOtp) {
       throw new ApiError(400, "OTP is expired or not found");
     }
 
-    const { otp: hashedotp, userId } = JSON.parse(data);
 
-    const isvalid = bcrypt.compareSync(otp, hashedotp);
+    const isvalid = bcrypt.compareSync(otp, hashedOtp);
 
     if (!isvalid) {
       const attempts = await redis.incr(attemptKey);
@@ -283,27 +282,24 @@ export const verifyOTPcontroller = async (req, res, next) => {
         { attemptLeft: 5 - attempts },
       ]);
     }
+
+    // Generate a JWT reset token with a 10-minute expiry for redis security
+    const resetToken = genreateToken( email , "10m");
+    const hashedResetToken = bcrypt.hashSync(resetToken, 10);
+
+    //redis mein set kara at the end.....
+    await redis.set(`reset_token:${email}`, hashedResetToken, "EX", 600);
+
     // OTP is successfully verified,
     // so delete the OTP and attempt counter from Redis
     await redis.del(otpKey);
     await redis.del(attemptKey);
 
-    // Generate a JWT reset token with a 10-minute expiry for redis security
-    const resetToken = genreateToken(userId, "10m");
-    const hashedResetToken = bcrypt.hashSync(resetToken, "10");
-
-    //redis mein set kara at the end.....
-    await redis.set(
-      `reset-token-hashedResetToken-${email}`,
-      hashedResetToken,
-      "EX",
-      600,
-    );
-
     return res
       .status(200)
       .json(new ApiResponse(200, resetToken, "OTP verified successfully"));
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -313,15 +309,10 @@ export const resetPasswordbyOTPcontroller = async (req, res, next) => {
     const { email, resetToken, newPassword } = req.body;
 
     if (!email || !resetToken || !newPassword) {
-      throw new ApiError(
-        400,
-        "email , resetPassword , newPassword are required",
-      );
+      throw new ApiError(400, "email , resetToken , newPassword are required");
     }
 
-    const hasedResetTokken = await redis.get(
-      `reset-token-hashedResetToken-${email}`,
-    );
+    const hasedResetTokken = await redis.get(`reset_token:${email}`);
 
     if (!hasedResetTokken) {
       throw new ApiError(
@@ -347,7 +338,7 @@ export const resetPasswordbyOTPcontroller = async (req, res, next) => {
     await user.save();
 
     // Kaam hone ke baad Redis se token hata do
-    await redis.del(`reset-token-hashedResetToken-${email}`);
+    await redis.del(`reset_token:${email}`);
 
     return res
       .status(200)
@@ -362,6 +353,8 @@ export const logoutUsercontroller = async (req, res, next) => {
   try {
     //befor using redis three credential is required
     // ->host,port and password
+    console.log("Logout API hit successfully!");
+    console.log("Cookies received:", req.cookies);
     const { accessToken, refreshToken } = req.cookies;
 
     //blacklist mein dalrahe haiaccesToken , refreshToken:-
@@ -382,13 +375,21 @@ export const logoutUsercontroller = async (req, res, next) => {
       );
     }
 
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    // Clear cookies with the exact options used while setting them 
+    const cookieOptions = {
+      httpOnly: true,
+      secure: false, // agar production mein true ho toh wahan env ke hisaab se karein
+      sameSite: "strict",
+    };
+
+    res.clearCookie("accessToken" , cookieOptions);
+    res.clearCookie("refreshToken" , cookieOptions);
 
     return res
       .status(200)
       .json(new ApiResponse(200, null, "user logout successfully"));
   } catch (error) {
+    console.log("LOGOUT ERROR:" , error)
     next(error);
   }
 };
@@ -505,6 +506,7 @@ export const forgetPasswordcontroller = async (req, res, next) => {
       .status(200)
       .json(new ApiResponse(200, null, "email sent successfully"));
   } catch (error) {
+    console.log(error)
     next(error);
   }
 };
@@ -538,6 +540,7 @@ export const resetPasswordcontroller = async (req, res, next) => {
       .status(200)
       .json(new ApiResponse(200, null, "password updated successfully"));
   } catch (error) {
+    console.log(error)
     next(error);
   }
 };

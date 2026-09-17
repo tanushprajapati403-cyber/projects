@@ -4,7 +4,7 @@ import redis from "../config/redis.js";
 import jwt from "jsonwebtoken";
 import userModel from "../models/user.model.js";
 
-export const authmiddelware = async (req, res) => {
+export const authmiddelware = async (req, res , next) => {
   try {
     const token = req.cookies.accessToken;
 
@@ -16,10 +16,10 @@ export const authmiddelware = async (req, res) => {
     }
 
     const isTokenBlacklisted = await redis.get(
-      `Bearer:accessToken:${accessToken}`,
+      `Bearer:accessToken:${token}`,
     );
 
-    if (!isTokenBlacklisted) {
+    if (isTokenBlacklisted) {
       return res.status(401).json({
         success: false,
         message: "token is invalid",
@@ -40,6 +40,7 @@ export const authmiddelware = async (req, res) => {
     req.user = user;
     next();
   } catch (error) {
+    console.log("Auth Middleware Error:", error);
     return res.status(500).json({
       success: false,
       message: "internal server error",
