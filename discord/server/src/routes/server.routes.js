@@ -4,9 +4,12 @@ import {
   createServer,
   deleteServer,
   generateinvitecode,
+  getallserver,
+  getMyServers,
   getServerByInviteCode,
   getServerdetail,
   joinServer,
+  searchServer,
   transferOwnership,
   updateServer,
 } from "../controllers/server.controller.js";
@@ -18,6 +21,7 @@ import {
   getServerByInviteCodeValidator,
   getServerDetailValidator,
   joinServerValidator,
+  searchServerValidator,
   transferOwnershipValidator,
   updateServerValidator,
 } from "../validators/server.validator.js";
@@ -56,6 +60,10 @@ router.patch(
   transferOwnership,
 );
 
+router.get("/my-servers", authmiddelware, getMyServers);
+
+router.get("/public", authmiddelware, getallserver);
+
 router.get(
   "/invite/:inviteCode",
   getServerByInviteCodeValidator,
@@ -86,5 +94,7 @@ router.delete(
   deleteServerValidator,
   deleteServer,
 );
+
+router.get("/search", authmiddelware, searchServerValidator, searchServer);
 
 export default router;

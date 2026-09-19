@@ -47,7 +47,7 @@ router.get(
 );
 router.get(
   "/google/callback",
-  passport.authenticate("google", { session: false }),
+  passport.authenticate("google", { session: false }),// some thinfg add faliureredirect 
   googleUsercontroller,
 );
 

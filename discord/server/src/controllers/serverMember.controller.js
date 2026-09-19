@@ -179,3 +179,94 @@ export const updateMemberRole = async (req, res, next) => {
     next(error);
   }
 };
+
+export const searchServerMembers = async (req, res, next) => {
+  try {
+    const { serverId } = req.params;
+    const { query } = req.query;
+
+    if (!query) {
+      throw new ApiError(400, "Search query is required");
+    }
+
+    const server = await serverModel.findById(serverId);
+    if (!server) {
+      throw new ApiError(404, "Server not found");
+    }
+
+    const requesterMember = await serverMemberModel.findOne({
+      user: req.user._id,
+      server: serverId,
+    });
+    if (!requesterMember) {
+      throw new ApiError(403, "You are not a member of this server");
+    }
+
+    const members = await serverMemberModel
+      .find({ server: serverId })
+      .populate({
+        path: "user",
+        select: "username fullname profile_pic",
+        match: {
+          $or: [
+            { username: { $regex: query, $options: "i" } },
+            { fullname: { $regex: query, $options: "i" } },
+          ],
+        },
+      })
+      .populate("role", "name color");
+
+    // 4. Match na hone par user 'null' ho jata hai, unhe filter out kar dein
+    const filteredMembers = members.filter((member) => member.user !== null);
+
+    if (filteredMembers.length === 0) {
+      throw new ApiError(404, "No members found matching your search");
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, filteredMembers, "Server members fetched successfully")
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSingleServerMember = async (req, res, next) => {
+  try {
+    const { serverId, userId } = req.params;
+
+    const server = await serverModel.findById(serverId);
+    if (!server) {
+      throw new ApiError(404, "Server not found");
+    }
+
+    const requesterMember = await serverMemberModel.findOne({
+      user: req.user.id,
+      server: serverId,
+    });
+    if (!requesterMember) {
+      throw new ApiError(403, "You are not a member of this server");
+    }
+
+    const member = await serverMemberModel
+      .findOne({ server: serverId, user: userId })
+      .populate("user", "username fullname profile_pic status")
+      .populate("role", "name permissions position color");
+
+    if (!member) {
+      throw new ApiError(404, "Server member not found");
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          member,
+          "Server member details fetched successfully",
+        ),
+      );
+  } catch (error) {
+    next(error);
+  }
+};

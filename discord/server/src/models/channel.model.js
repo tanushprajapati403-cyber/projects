@@ -12,8 +12,13 @@ const channelSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["text", "voice"],
+      enum: ["text", "voice", "category"],
       default: "text",
+    },
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "channels",
+      default: null,
     },
     server: {
       type: mongoose.Schema.Types.ObjectId,

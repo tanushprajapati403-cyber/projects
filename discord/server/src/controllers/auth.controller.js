@@ -38,7 +38,7 @@ export const registercontroller = async (req, res, next) => {
     const accessToken = genreateToken(newUser._id, "15min");
     const refreshToken = genreateToken(newUser._id, "2d");
 
-    res.cookie("accesToken", accessToken, {
+    res.cookie("accessToken", accessToken, {
       httpOnly: true,
       maxAge: 15 * 60 * 1000,
       secure: false,
@@ -196,12 +196,7 @@ export const sendOTPcontroller = async (req, res, next) => {
     const otpKey = `otp:${email}`;
 
     //redis ke method hai save karne bali time control kar ke use :-
-    await redis.set(
-      otpKey,
-     hashedotp,
-      "EX",
-      300,
-    );
+    await redis.set(otpKey, hashedotp, "EX", 300);
 
     //otp  attempt :-
     const attemptKey = `otp_attempts:${email}`;
@@ -247,12 +242,11 @@ export const verifyOTPcontroller = async (req, res, next) => {
     const otpKey = `otp:${email}`;
     const attemptKey = `otp_attempts:${email}`;
     const hashedOtp = await redis.get(otpKey);
-    const attempt =  await redis.get(attemptKey);
+    const attempt = await redis.get(attemptKey);
 
     if (!hashedOtp) {
       throw new ApiError(400, "OTP is expired or not found");
     }
-
 
     const isvalid = bcrypt.compareSync(otp, hashedOtp);
 
@@ -284,7 +278,7 @@ export const verifyOTPcontroller = async (req, res, next) => {
     }
 
     // Generate a JWT reset token with a 10-minute expiry for redis security
-    const resetToken = genreateToken( email , "10m");
+    const resetToken = genreateToken(email, "10m");
     const hashedResetToken = bcrypt.hashSync(resetToken, 10);
 
     //redis mein set kara at the end.....
@@ -375,21 +369,21 @@ export const logoutUsercontroller = async (req, res, next) => {
       );
     }
 
-    // Clear cookies with the exact options used while setting them 
+    // Clear cookies with the exact options used while setting them
     const cookieOptions = {
       httpOnly: true,
       secure: false, // agar production mein true ho toh wahan env ke hisaab se karein
       sameSite: "strict",
     };
 
-    res.clearCookie("accessToken" , cookieOptions);
-    res.clearCookie("refreshToken" , cookieOptions);
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
 
     return res
       .status(200)
       .json(new ApiResponse(200, null, "user logout successfully"));
   } catch (error) {
-    console.log("LOGOUT ERROR:" , error)
+    console.log("LOGOUT ERROR:", error);
     next(error);
   }
 };
@@ -400,6 +394,13 @@ export const resetToken = async (req, res, next) => {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
       throw new ApiError(401, "unauthorized");
+    }
+
+    const isBlackListed = await redis.get(
+      `Bearer:refreshToken:${refreshToken}`,
+    );
+    if (isBlackListed) {
+      throw new ApiError(403, "Token is blacklisted or invalid");
     }
 
     const verifyRefreshToken = jwt.verify(refreshToken, process.env.JWT_SECRET);
@@ -506,7 +507,7 @@ export const forgetPasswordcontroller = async (req, res, next) => {
       .status(200)
       .json(new ApiResponse(200, null, "email sent successfully"));
   } catch (error) {
-    console.log(error)
+    console.log(error);
     next(error);
   }
 };
@@ -540,7 +541,7 @@ export const resetPasswordcontroller = async (req, res, next) => {
       .status(200)
       .json(new ApiResponse(200, null, "password updated successfully"));
   } catch (error) {
-    console.log(error)
+    console.log(error);
     next(error);
   }
 };

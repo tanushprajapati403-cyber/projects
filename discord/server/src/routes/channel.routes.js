@@ -6,6 +6,7 @@ import {
   getChannelById,
   getServerChannels,
   reorderChannels,
+  searchChannels,
   updateChannel,
 } from "../controllers/channel.controller.js";
 import {
@@ -14,6 +15,7 @@ import {
   getChannelByIdValidator,
   getServerChannelsValidator,
   reorderChannelsValidator,
+  searchChannelsValidator,
   UpdateChannelValidator,
 } from "../validators/channel.validator.js";
 
@@ -25,35 +27,47 @@ router.post(
   createChannelValidator,
   createChannel,
 );
+
 router.get(
   "/channels/:serverId",
   authmiddelware,
   getServerChannelsValidator,
   getServerChannels,
 );
+
 router.get(
   "/channels/:channelId",
   authmiddelware,
   getChannelByIdValidator,
   getChannelById,
 );
+
 router.patch(
   "/channel/:channelId",
   authmiddelware,
   UpdateChannelValidator,
   updateChannel,
 );
+
 router.delete(
   "/channel/:channelId",
   authmiddelware,
   deleteChannelValidator,
   deleteChannel,
 );
+
 router.patch(
   "/channels/:serverId/reorder",
   authmiddelware,
   reorderChannelsValidator,
   reorderChannels,
+);
+
+router.get(
+  "/:serverId/channels/search",
+  authmiddelware,
+  searchChannelsValidator,
+  searchChannels,
 );
 
 export default router;

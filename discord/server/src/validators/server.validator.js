@@ -100,3 +100,14 @@ export const transferOwnershipValidator = [
 
   validate,
 ];
+
+export const searchServerValidator = [
+  query("query")
+    .trim()
+    .notEmpty()
+    .withMessage("Search query is required")
+    .isLength({ min: 1 })
+    .withMessage("Search query must be at least 1 character long"),
+
+  validate,
+];

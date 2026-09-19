@@ -38,6 +38,7 @@ export const authmiddelware = async (req, res , next) => {
     const user = await userModel.findById(decode.id).select("-password");
 
     req.user = user;
+    console.log(req.user)
     next();
   } catch (error) {
     console.log("Auth Middleware Error:", error);

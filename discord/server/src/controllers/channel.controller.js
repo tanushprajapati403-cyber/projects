@@ -7,7 +7,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 export const createChannel = async (req, res, next) => {
   try {
     const { serverId } = req.params;
-    const { name, type, topic, position, isPrivate } = req.body;
+    const { name, type, topic, position, isPrivate, category } = req.body;
 
     const server = await serverModel.findById(serverId);
     if (!server) {
@@ -40,6 +40,17 @@ export const createChannel = async (req, res, next) => {
       );
     }
 
+    if (category) {
+      const parentCategory = await channelModel.findOne({
+        _id: category,
+        server: serverId,
+        type: "category",
+      });
+      if (!parentCategory) {
+        throw new ApiError(400, "Invalid category specified");
+      }
+    }
+
     const channel = await channelModel.create({
       name,
       type: type || "text",
@@ -47,6 +58,7 @@ export const createChannel = async (req, res, next) => {
       topic,
       position: position || 0,
       isPrivate: isPrivate || false,
+      category: category || null,
     });
 
     return res
@@ -151,7 +163,7 @@ export const updateChannel = async (req, res, next) => {
       })
       .populate("role");
     if (!requesterMember) {
-      throw new ApiError(403, "You are not a member of this server");
+      throw new ApiError(403, "You do not have a member of this server");
     }
 
     if (
@@ -286,6 +298,51 @@ export const reorderChannels = async (req, res, next) => {
     return res
       .status(200)
       .json(new ApiResponse(200, null, "Channels reordered successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const searchChannels = async (req, res, next) => {
+  try {
+    const { serverId } = req.params;
+    const { query } = req.query;
+
+    if (!query) {
+      throw new ApiError(400, "Search query is required");
+    }
+
+    const server = await serverModel.findById(serverId);
+    if (!server) {
+      throw new ApiError(404, "Server not found");
+    }
+
+    const requesterMember = await serverMemberModel
+      .findOne({
+        user: req.user._id,
+        server: serverId,
+      })
+      .populate("role");
+
+    if (!requesterMember) {
+      throw new ApiError(403, "You are not a member of this server");
+    }
+
+    // RegEx search channel name ke liye
+    const channels = await channelModel
+      .find({
+        server: serverId,
+        name: { $regex: query, $options: "i" },
+      })
+      .sort({ position: 1 });
+
+    if (channels.length === 0) {
+      throw new ApiError(404, "No channels found matching your search");
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, channels, "Channels searched successfully"));
   } catch (error) {
     next(error);
   }

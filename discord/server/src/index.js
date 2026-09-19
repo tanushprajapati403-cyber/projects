@@ -13,6 +13,6 @@ server.listen(3000);
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT ,  ()=>{
-  console.log("server is running" ,  PORT)
-})
+app.listen(PORT, () => {
+  console.log("server is running", PORT);
+});

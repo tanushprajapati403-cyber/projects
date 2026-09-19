@@ -322,3 +322,64 @@ export const transferOwnership = async (req, res, next) => {
     next(error);
   }
 };
+
+//Saare public/explore servers dikhane ke liye.
+export const getallserver = async (req, res, next) => {
+  try {
+    const servers = await serverModel.find({ isPublic: true });
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, servers, "Public servers fetched successfully"),
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
+//jisme uske joined private + public servers hote hain
+export const getMyServers = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // ServerMember collection se find karein ki user kahan-kahan member hai
+    const memberships = await serverMemberModel
+      .find({ user: userId })
+      .populate("server");
+
+    // Sirf server objects ki list nikal lein
+    const servers = memberships.map((membership) => membership.server);
+    //                   or
+    //const servers = await serverModel.find({ _id: { $in: serverIds } });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, servers, "User servers fetched successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const searchServer = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+
+    const servers = await serverModel
+      .find({
+        isPublic: true,
+        $or: [{ name: { $regax: query, $options: i } }],
+      })
+      .select("name icon isPublic owner");
+
+    if (servers.length === 0) {
+      throw new ApiError(404, "servers not found");
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, servers, "servers fetched successfully"));
+  } catch (error) {
+    next(error);
+  }
+};

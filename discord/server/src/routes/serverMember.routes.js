@@ -3,15 +3,19 @@ import { authmiddelware } from "../middlewares/auth.middleware.js";
 import {
   getMyServer,
   getServerMember,
+  getSingleServerMember,
   leaveServer,
   removeMember,
+  searchServerMembers,
   updateMemberRole,
 } from "../controllers/serverMember.controller.js";
 import {
   getMyServerValidator,
   getServerMemberValidator,
+  SingleServerMemberValidator,
   leaveServerValidator,
   removeMemberValidator,
+  searchServerMembersValidator,
   updateMemberRoleValidator,
 } from "../validators/serverMember.validator.js";
 
@@ -42,6 +46,20 @@ router.patch(
   authmiddelware,
   updateMemberRoleValidator,
   updateMemberRole,
+);
+
+router.get(
+  "/:serverId/members/:userId",
+  authmiddelware,
+  SingleServerMemberValidator,
+  getSingleServerMember,
+);
+
+router.get(
+  "/:serverId/members/search",
+  authmiddelware,
+  searchServerMembersValidator,
+  searchServerMembers,
 );
 
 export default router;
